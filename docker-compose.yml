@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: wp_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wpuser
+      MYSQL_PASSWORD: wppassword
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - wp_network
+
+  wordpress:
+    image: wordpress:latest
+    container_name: wp_app
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wpuser
+      WORDPRESS_DB_PASSWORD: wppassword
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: 1
+    volumes:
+      - wp_data:/var/www/html
+      - ./wordpress/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+    networks:
+      - wp_network
+
+  nextjs:
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile.dev
+    container_name: nextjs_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      WORDPRESS_API_URL: http://wordpress/wp-json
+    volumes:
+      - ./next-app:/app
+      - /app/node_modules
+    depends_on:
+      - wordpress
+    networks:
+      - wp_network
+
+volumes:
+  db_data:
+  wp_data:
+
+networks:
+  wp_network:
+    driver: bridge
